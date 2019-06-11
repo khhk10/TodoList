@@ -1,7 +1,9 @@
 # TodoList
 Simple ToDo List app for iOS
 
-function: creating todo, checkmark, reordering, deleting, renaming
+- create todo
+- edit (reorder, rename, delete)
+- checkmark
 
 <img src="https://github.com/khhk10/TodoList/blob/master/images/todolist.jpg" width="700">
 
