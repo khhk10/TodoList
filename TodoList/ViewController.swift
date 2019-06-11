@@ -13,8 +13,8 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        // 編集モード時にセルを選択できないようにする
-        tableView.allowsSelectionDuringEditing = false
+        // 編集モード時にセルを選択可能にする
+        tableView.allowsSelectionDuringEditing = true
         
         // 保存したToDoの取得
         let userDefaults = UserDefaults.standard
@@ -52,14 +52,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 self.tableView.insertRows(at: [IndexPath(row: 0, section: 0)], with: UITableView.RowAnimation.right)
                 
                 // 保存
-                let userDefaults = UserDefaults.standard
-                do {
-                    // シリアライズ
-                    let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
-                    userDefaults.set(data, forKey: "todoList")
-                    userDefaults.synchronize()
-                } catch {
-                }
+                self.storeTodoListData()
             }
         }
         alertController.addAction(okAction)
@@ -81,6 +74,19 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         } else {
             tableView.isEditing = true
             editButton.title = "Done"
+        }
+    }
+    
+    // Todoリストデータの保存
+    func storeTodoListData() {
+        // 保存
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
+            let userDefaults = UserDefaults.standard
+            userDefaults.set(data, forKey: "todoList")
+            userDefaults.synchronize()
+        } catch {
+            // エラー処理なし
         }
     }
     
@@ -108,30 +114,50 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     // セルがタップされた時の処理
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-        // チェックマーク
-        let todo = todoList[indexPath.row]
-        if todo.todoDone {
-            todo.todoDone = false
+        // 編集モードのとき
+        if tableView.isEditing {
+            // タイトルの変更
+            let editAlert = UIAlertController(title: "ToDo編集", message: nil, preferredStyle: UIAlertController.Style.alert)
+            editAlert.addTextField { (textField: UITextField) in
+                // 編集前のタイトル
+                textField.text = self.todoList[indexPath.row].todoTitle
+            }
+            // OKボタン
+            let okAction = UIAlertAction(title: "OK", style: UIAlertAction.Style.default) { (action: UIAlertAction) in
+                guard let textField = editAlert.textFields?.first else {
+                    // フィールドに文字がない
+                    return
+                }
+                if textField.text == self.todoList[indexPath.row].todoTitle {
+                    // 変更なし
+                    return
+                }
+                self.todoList[indexPath.row].todoTitle = textField.text!
+                // セルの状態を変更
+                tableView.reloadRows(at: [indexPath], with: UITableView.RowAnimation.fade)
+                // 保存
+                self.storeTodoListData()
+            }
+            editAlert.addAction(okAction)
+            present(editAlert, animated: true, completion: nil)
+            
         } else {
-            todo.todoDone = true
-        }
-        
-        // セルの状態を変更
-        tableView.reloadRows(at: [indexPath], with: UITableView.RowAnimation.fade)
-        
-        // 保存
-        do {
-            let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
-            let userDefaults = UserDefaults.standard
-            userDefaults.set(data, forKey: "todoList")
-            userDefaults.synchronize()
-        } catch {
-            // エラー処理なし
+            // チェックマーク
+            let todo = todoList[indexPath.row]
+            if todo.todoDone {
+                todo.todoDone = false
+            } else {
+                todo.todoDone = true
+            }
+            // セルの状態を変更
+            tableView.reloadRows(at: [indexPath], with: UITableView.RowAnimation.fade)
+            // 保存
+            storeTodoListData()
         }
     }
     
     // セルが編集可能かどうか設定する
-    // 編集できない行はeditingStyleプロパティを無視する
+    // falseにした場合はeditingStyleプロパティを無視する
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
         return true
     }
@@ -152,13 +178,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             // セルの削除
             tableView.deleteRows(at: [indexPath], with: UITableView.RowAnimation.fade)
             // 保存
-            do {
-                let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
-                let userDefaults = UserDefaults.standard
-                userDefaults.set(data, forKey: "todoList")
-                userDefaults.synchronize()
-            } catch {
-            }
+            storeTodoListData()
         }
     }
     
@@ -166,7 +186,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // 指定のセルの編集スタイルを設定する (none, delete, insert)
     // セルが編集可能で、このメソッドが実装されていない場合は、EditingStyle.deleteが設定されている
     func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
-     
         // セルに対して編集操作したくない場合は、noneにする
         return UITableViewCell.EditingStyle.none
     }
@@ -174,18 +193,12 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     // セルを移動させた後の処理
     func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
-        // 移動したセル
+        // リスト内の並べ替え
         let todo = todoList[sourceIndexPath.row]
         todoList.remove(at: sourceIndexPath.row)
         todoList.insert(todo, at: destinationIndexPath.row)
         // 保存
-        do {
-            let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
-            let userDefaults = UserDefaults.standard
-            userDefaults.set(data, forKey: "todoList")
-            userDefaults.synchronize()
-        } catch {
-        }
+        storeTodoListData()
     }
 }
 
