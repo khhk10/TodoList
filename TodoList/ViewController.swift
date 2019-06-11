@@ -7,8 +7,14 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     @IBOutlet weak var tableView: UITableView!
     
+    // 編集ボタン
+    @IBOutlet weak var editButton: UIBarButtonItem!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        // 編集モード時にセルを選択できないようにする
+        tableView.allowsSelectionDuringEditing = false
         
         // 保存したToDoの取得
         let userDefaults = UserDefaults.standard
@@ -22,7 +28,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             }
         }
     }
-
+    
     // 追加ボタンをタップした時の処理
     @IBAction func tapAddButton(_ sender: Any) {
         // アラートダイアログ
@@ -64,6 +70,18 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         // アラートダイアログを表示
         present(alertController, animated: true, completion: nil)
+    }
+    
+    // 編集ボタンをタップした時の処理
+    @IBAction func tapEditButton(_ sender: UIBarButtonItem) {
+        // セルを編集モードにする
+        if tableView.isEditing {
+            tableView.isEditing = false
+            editButton.title = "Edit"
+        } else {
+            tableView.isEditing = true
+            editButton.title = "Done"
+        }
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -112,16 +130,24 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         }
     }
     
-    // セルの編集
+    // セルが編集可能かどうか設定する
+    // 編集できない行はeditingStyleプロパティを無視する
     func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
         return true
     }
     
-    // セルの編集
+    // セルを移動可能にする
+    // tableView moveRowAtメソッドを実装している場合は、デフォルトでtrueになる
+    func tableView(_ tableView: UITableView, canMoveRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+    
+    // データソースに指定のセルの挿入や削除を要求する
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
+        
         // 削除処理かどうか
         if editingStyle == UITableViewCell.EditingStyle.delete {
-            // リストから削除
+            // 配列から削除
             todoList.remove(at: indexPath.row)
             // セルの削除
             tableView.deleteRows(at: [indexPath], with: UITableView.RowAnimation.fade)
@@ -133,6 +159,32 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 userDefaults.synchronize()
             } catch {
             }
+        }
+    }
+    
+    /*
+    // 指定のセルの編集スタイルを設定する (none, delete, insert)
+    // セルが編集可能で、このメソッドが実装されていない場合は、EditingStyle.deleteが設定されている
+    func tableView(_ tableView: UITableView, editingStyleForRowAt indexPath: IndexPath) -> UITableViewCell.EditingStyle {
+     
+        // セルに対して編集操作したくない場合は、noneにする
+        return UITableViewCell.EditingStyle.none
+    }
+    */
+    
+    // セルを移動させた後の処理
+    func tableView(_ tableView: UITableView, moveRowAt sourceIndexPath: IndexPath, to destinationIndexPath: IndexPath) {
+        // 移動したセル
+        let todo = todoList[sourceIndexPath.row]
+        todoList.remove(at: sourceIndexPath.row)
+        todoList.insert(todo, at: destinationIndexPath.row)
+        // 保存
+        do {
+            let data = try NSKeyedArchiver.archivedData(withRootObject: self.todoList, requiringSecureCoding: true)
+            let userDefaults = UserDefaults.standard
+            userDefaults.set(data, forKey: "todoList")
+            userDefaults.synchronize()
+        } catch {
         }
     }
 }
